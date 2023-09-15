@@ -47,7 +47,12 @@ class Predictor(BasePredictor):
     def predict(
         self,
         prompt: str = Input(description="Prompt", default="tron world"),
-        seed: int = Input(description="Leave blank to randomize the seed", default=None),
+        negative_prompt: str = Input(description="Negative prompt", default="cropped, out of frame, worst quality, low quality, jpeg artifacts,duplicate"),
+        width: int = Input(description="Width of output image. Reduce if out of memory.", default=1024),
+        height: int = Input(description="Height of output image. Reduce if out of memory.", default=512),
+        num_inference_steps : int = Input(description="Between 15 and 30", ge=15, le=30,default=20),
+        seed: int = Input(description="Leave blank to randomize the seed", default=None)
+        
     ) -> Path:
         """Run a single prediction on the model"""
         if seed is None:
@@ -57,9 +62,11 @@ class Predictor(BasePredictor):
         prompt_sdxl = prompt + " in the style of <s0><s1>";
         image = self.pipe(
             prompt_sdxl,
+            negative_prompt=negative_prompt,
             cross_attention_kwargs={"scale": 0.8},
-            width=1024,
-            height=512,
+            width=width,
+            steps=num_inference_steps,
+            height=height,
             generator=torch.manual_seed(seed),
         ).images[0]
         image.save("1-base.png")
@@ -113,7 +120,7 @@ class Predictor(BasePredictor):
             image=image,
             mask_image=mask_image,
             guidance_scale=8.0,
-            num_inference_steps=20,  # steps between 15 and 30 work well for us
+            num_inference_steps=num_inference_steps,  # steps between 15 and 30 work well for us
             strength=0.99,  # make sure to use `strength` below 1.0
             generator=generator,
         ).images[0]
