@@ -65,7 +65,7 @@ class Predictor(BasePredictor):
             negative_prompt=negative_prompt,
             cross_attention_kwargs={"scale": 0.8},
             width=width,
-            steps=num_inference_steps,
+            num_inference_steps=num_inference_steps,
             height=height,
             generator=torch.manual_seed(seed),
         ).images[0]
