@@ -48,9 +48,8 @@ class Predictor(BasePredictor):
         self,
         prompt: str = Input(description="Prompt", default="tron world"),
         negative_prompt: str = Input(description="Negative prompt", default="cropped, out of frame, worst quality, low quality, jpeg artifacts,duplicate"),
-        width: int = Input(description="Width of output image. Reduce if out of memory.", default=1024),
-        height: int = Input(description="Height of output image. Reduce if out of memory.", default=512),
         num_inference_steps : int = Input(description="Between 15 and 30", ge=15, le=30,default=20),
+        scale : int = Input(description="Image size is 1024x512, upscale image between 1 and 10", ge=1, le=10,default=1),
         seed: int = Input(description="Leave blank to randomize the seed", default=None)
         
     ) -> Path:
@@ -58,19 +57,19 @@ class Predictor(BasePredictor):
         if seed is None:
             seed = int.from_bytes(os.urandom(2), "big")
         print(f"Using seed: {seed}")
-
+        
         prompt_sdxl = prompt + " in the style of <s0><s1>";
         image = self.pipe(
             prompt_sdxl,
             negative_prompt=negative_prompt,
             cross_attention_kwargs={"scale": 0.8},
-            width=width,
+            width=1024,
+            height=512,
             num_inference_steps=num_inference_steps,
-            height=height,
             generator=torch.manual_seed(seed),
         ).images[0]
         image.save("1-base.png")
-
+        
         # Calculate the midpoint to split the image in half
         width, height = image.size
         midpoint = width // 2
@@ -134,4 +133,22 @@ class Predictor(BasePredictor):
         # Save the swapped image at 2048x1024
         image.save("6-final.png")
 
-        return Path("6-final.png")
+        model_name = 'RealESRGAN_x4plus'
+        img = cv2.imread(str("6-final.png"), cv2.IMREAD_UNCHANGED)
+        model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4)
+        model_path = os.path.join('realesrgan_folder', model_name + ".pth")
+        upsampler = RealESRGANer(
+            scale=4,
+            model_path=model_path,
+            model=model,
+            tile=0,
+            tile_pad=10,
+            pre_pad=0,
+            half=True)
+        if scale == 1: 
+            scale = 0.5
+        output, _ = upsampler.enhance(img, outscale=scale)
+        # Save image at 2048x1024
+        cv2.imwrite("7-final.png", output)
+
+        return Path("7-final.png")
